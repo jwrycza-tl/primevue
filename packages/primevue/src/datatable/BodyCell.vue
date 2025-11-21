@@ -224,7 +224,6 @@ export default {
     documentEditListener: null,
     selfClick: false,
     overlayEventListener: null,
-    editCompleteTimeout: null,
     data() {
         return {
             d_editing: this.editing,
@@ -308,32 +307,21 @@ export default {
         bindDocumentEditListener() {
             if (!this.documentEditListener) {
                 this.documentEditListener = (event) => {
-                    this.selfClick = this.$el && this.$el.contains(event.target);
-
-                    if (this.editCompleteTimeout) {
-                        clearTimeout(this.editCompleteTimeout);
-                    }
-
                     if (!this.selfClick) {
-                        this.editCompleteTimeout = setTimeout(() => {
-                            this.completeEdit(event, 'outside');
-                        }, 1);
+                        this.completeEdit(event, 'outside');
                     }
+
+                    this.selfClick = false;
                 };
 
-                document.addEventListener('mousedown', this.documentEditListener);
+                document.addEventListener('click', this.documentEditListener);
             }
         },
         unbindDocumentEditListener() {
             if (this.documentEditListener) {
-                document.removeEventListener('mousedown', this.documentEditListener);
+                document.removeEventListener('click', this.documentEditListener);
                 this.documentEditListener = null;
                 this.selfClick = false;
-
-                if (this.editCompleteTimeout) {
-                    clearTimeout(this.editCompleteTimeout);
-                    this.editCompleteTimeout = null;
-                }
             }
         },
         switchCellToViewMode() {
@@ -344,13 +332,17 @@ export default {
         },
         onClick(event) {
             if (this.editMode === 'cell' && this.isEditable()) {
+                this.selfClick = true;
+
                 if (!this.d_editing) {
                     this.d_editing = true;
                     this.bindDocumentEditListener();
                     this.$emit('cell-edit-init', { originalEvent: event, data: this.rowData, field: this.field, index: this.rowIndex });
 
                     this.overlayEventListener = (e) => {
-                        this.selfClick = this.$el && this.$el.contains(e.target);
+                        if (this.$el && this.$el.contains(e.target)) {
+                            this.selfClick = true;
+                        }
                     };
 
                     OverlayEventBus.on('overlay-click', this.overlayEventListener);
@@ -404,22 +396,20 @@ export default {
                 }
             }
         },
-        async moveToPreviousCell(event) {
+        moveToPreviousCell(event) {
             let currentCell = this.findCell(event.target);
             let targetCell = this.findPreviousEditableColumn(currentCell);
 
             if (targetCell) {
-                await this.$nextTick();
                 invokeElementMethod(targetCell, 'click');
                 event.preventDefault();
             }
         },
-        async moveToNextCell(event) {
+        moveToNextCell(event) {
             let currentCell = this.findCell(event.target);
             let targetCell = this.findNextEditableColumn(currentCell);
 
             if (targetCell) {
-                await this.$nextTick();
                 invokeElementMethod(targetCell, 'click');
                 event.preventDefault();
             }
